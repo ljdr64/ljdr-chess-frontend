@@ -3,6 +3,9 @@ import {
     ChessBoard,
     ChessBoardHandle,
 } from '../../../lib/ljdr-chessboard/ljdr-chessboard.es.js';
+
+import { Chess, Move } from 'chess.js';
+
 import '../../../lib/ljdr-chessboard/style.css';
 
 const getResponsiveSquareSize = (width: number): number => {
@@ -16,11 +19,58 @@ const getResponsiveSquareSize = (width: number): number => {
     return 36;
 };
 
+const buildDests = (game: Chess): Map<string, string[]> => {
+    const map = new Map<string, string[]>();
+    const verbose = game.moves({ verbose: true }) as Move[];
+    for (const m of verbose) {
+        if (!map.has(m.from)) map.set(m.from, []);
+        map.get(m.from)!.push(m.to);
+    }
+    return map;
+};
+
 export default function Play() {
     const boardRef = useRef<ChessBoardHandle>(null);
+    const gameRef = useRef(new Chess());
+
     const [squareSize, setSquareSize] = useState(() =>
         getResponsiveSquareSize(window.innerWidth)
     );
+    const [dests, setDests] = useState<Map<string, string[]>>(
+        buildDests(gameRef.current)
+    );
+
+    const handleMove = (from: string, to: string) => {
+        const move = gameRef.current.move({ from, to });
+        if (!move) return;
+
+        setDests(buildDests(gameRef.current));
+
+        setTimeout(() => {
+            if (gameRef.current.turn() === 'b') {
+                const moves = gameRef.current.moves({
+                    verbose: true,
+                }) as Move[];
+                if (moves.length > 0) {
+                    const random =
+                        moves[Math.floor(Math.random() * moves.length)];
+
+                    boardRef.current?.move(random.from, random.to);
+                    boardRef.current?.set({
+                        movable: { dests: buildDests(gameRef.current) },
+                    });
+                    boardRef.current?.playPremove();
+                    setDests(buildDests(gameRef.current));
+                }
+            }
+        }, 2000);
+    };
+
+    useEffect(() => {
+        boardRef.current?.set({
+            check: gameRef.current.isCheck(),
+        });
+    }, [gameRef.current.fen()]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -39,9 +89,28 @@ export default function Play() {
             <ChessBoard
                 ref={boardRef}
                 id="board-1"
+                fen={gameRef.current.fen()}
                 squareSize={squareSize}
                 orientation="white"
                 turnColor="white"
+                movable={{
+                    free: false,
+                    color: 'white',
+                    dests,
+                    showDests: true,
+                }}
+                premovable={{
+                    enabled: true,
+                    showDests: true,
+                }}
+                events={{
+                    move: (from: string, to: string) => {
+                        handleMove(from, to);
+                        boardRef.current?.set({
+                            check: gameRef.current.isCheck(),
+                        });
+                    },
+                }}
             />
         </div>
     );

@@ -730,11 +730,14 @@ const createChessBoardRef = (deps) => {
       if (config.turnColor) {
         boardConfigRef.current.turnColor = config.turnColor;
       }
-      if (config.check && config.turnColor && config.fen) {
+      if (config.check) {
+        const turn = config.turnColor ?? boardConfigRef.current.turnColor;
+        const plainBoard = Object.fromEntries(boardMapFuture.current);
+        const fen = boardMapToFEN(plainBoard);
         boardConfigRef.current.check = getPositionCheck(
           config.check,
-          config.turnColor,
-          config.fen
+          turn,
+          fen
         );
       }
       if (config.lastMove) {
@@ -941,7 +944,7 @@ const createChessBoardRef = (deps) => {
       }
     },
     playPremove: () => {
-      var _a, _b, _c, _d, _e, _f;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
       const config = boardConfigRef.current;
       const premove2 = config.premovable.current;
       if (!premove2) return false;
@@ -961,27 +964,21 @@ const createChessBoardRef = (deps) => {
         } else {
           moveOrCastle = [{ from, to }];
         }
+        const captured = boardMapFuture.current.get(to);
+        const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
         moveOrCastle.forEach(({ from: fromSquare, to: toSquare }) => {
-          var _a2, _b2, _c2, _d2;
           if (fromSquare !== "" && toSquare !== "") {
-            const captured = boardMapFuture.current.get(toSquare);
-            const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
             movePieceOnBoard(fromSquare, toSquare, {
               boardMap: boardMapFuture,
               boardMapIndex: boardMapIndexFuture,
               freeIndexes
             });
-            (_b2 = (_a2 = boardConfigRef.current.events).move) == null ? void 0 : _b2.call(
-              _a2,
-              fromSquare,
-              toSquare,
-              capturedPiece
-            );
-            (_d2 = (_c2 = boardConfigRef.current.events).change) == null ? void 0 : _d2.call(_c2);
           }
         });
+        (_d = (_c = boardConfigRef.current.events).move) == null ? void 0 : _d.call(_c, from, to, capturedPiece);
+        (_f = (_e = boardConfigRef.current.events).change) == null ? void 0 : _f.call(_e);
         config.premovable.current = void 0;
-        (_d = (_c = config.premovable.events) == null ? void 0 : _c.unset) == null ? void 0 : _d.call(_c);
+        (_h = (_g = config.premovable.events) == null ? void 0 : _g.unset) == null ? void 0 : _h.call(_g);
         if (boardConfigRef.current.animation.enabled && boardConfigRef.current.animation.duration > 70) {
           if (lastAnimation) {
             lastAnimation.cancel();
@@ -1055,7 +1052,7 @@ const createChessBoardRef = (deps) => {
       } else {
         const config2 = boardConfigRef.current;
         config2.premovable.current = void 0;
-        (_f = (_e = config2.premovable.events) == null ? void 0 : _e.unset) == null ? void 0 : _f.call(_e);
+        (_j = (_i = config2.premovable.events) == null ? void 0 : _i.unset) == null ? void 0 : _j.call(_i);
         return false;
       }
     },
@@ -1066,7 +1063,7 @@ const createChessBoardRef = (deps) => {
       (_b = (_a = config.premovable.events) == null ? void 0 : _a.unset) == null ? void 0 : _b.call(_a);
     },
     move: (fromSquare, toSquare, render) => {
-      var _a;
+      var _a, _b, _c, _d, _e;
       const validFrom = validateSquare(fromSquare);
       const validTo = validateSquare(toSquare);
       const existingPieceAtFrom = boardMapFuture.current.has(fromSquare);
@@ -1088,8 +1085,9 @@ const createChessBoardRef = (deps) => {
           } else {
             moveOrCastle = [{ from: fromSquare, to: toSquare }];
           }
+          const captured = boardMapFuture.current.get(toSquare);
+          const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
           moveOrCastle.forEach(({ from: fromSquare2, to: toSquare2 }) => {
-            var _a2, _b, _c, _d;
             if (fromSquare2 !== "" && toSquare2 !== "") {
               if ((selectedPiece == null ? void 0 : selectedPiece.square) === fromSquare2 || (selectedPiece == null ? void 0 : selectedPiece.square) === toSquare2) {
                 const existingPieceAtTo = boardMapFuture.current.has(toSquare2);
@@ -1112,22 +1110,20 @@ const createChessBoardRef = (deps) => {
                   ghostRef.current.style.visibility = "hidden";
                 }
               }
-              const captured = boardMapFuture.current.get(toSquare2);
-              const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
               movePieceOnBoard(fromSquare2, toSquare2, {
                 boardMap: boardMapFuture,
                 boardMapIndex: boardMapIndexFuture,
                 freeIndexes
               });
-              (_b = (_a2 = boardConfigRef.current.events).move) == null ? void 0 : _b.call(
-                _a2,
-                fromSquare2,
-                toSquare2,
-                capturedPiece
-              );
-              (_d = (_c = boardConfigRef.current.events).change) == null ? void 0 : _d.call(_c);
             }
           });
+          (_b = (_a = boardConfigRef.current.events).move) == null ? void 0 : _b.call(
+            _a,
+            fromSquare,
+            toSquare,
+            capturedPiece
+          );
+          (_d = (_c = boardConfigRef.current.events).change) == null ? void 0 : _d.call(_c);
           if (boardConfigRef.current.animation.enabled && boardConfigRef.current.animation.duration > 70) {
             if (lastAnimation) {
               lastAnimation.cancel();
@@ -1185,7 +1181,7 @@ const createChessBoardRef = (deps) => {
           boardConfigRef.current.turnColor = boardConfigRef.current.turnColor === "white" ? "black" : "white";
           boardConfigRef.current.movable.dests = /* @__PURE__ */ new Map();
           boardConfigRef.current.premovable.dests = [];
-          if (!((_a = boardConfigRef.current.premovable.dests) == null ? void 0 : _a.includes(
+          if (!((_e = boardConfigRef.current.premovable.dests) == null ? void 0 : _e.includes(
             boardConfigRef.current.selected
           )) && boardConfigRef.current.premovable.enabled === true && boardConfigRef.current.premovable.showDests === true && boardConfigRef.current.movable.color === (selectedPiece == null ? void 0 : selectedPiece.color) && boardConfigRef.current.turnColor !== (selectedPiece == null ? void 0 : selectedPiece.color)) {
             const newDests = premove(
@@ -1672,7 +1668,7 @@ const ChessBoard = forwardRef(
       })
     );
     const handleMouseDown = (event) => {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
       event.stopPropagation();
       if (!isMovableEnabledRef.current) return;
       let eventType;
@@ -1859,12 +1855,11 @@ const ChessBoard = forwardRef(
             } else {
               moveOrCastle = [{ from: fromSquare, to: toSquare }];
             }
+            const captured = boardMapFuture.current.get(toSquare);
+            const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
             moveOrCastle.forEach(
               ({ from: fromSquare2, to: toSquare2, render }) => {
-                var _a2, _b2, _c2, _d2, _e2, _f2;
                 if (fromSquare2 !== "" && toSquare2 !== "") {
-                  const captured = boardMapFuture.current.get(toSquare2);
-                  const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
                   if (render !== false) {
                     movePieceOnBoard(fromSquare2, toSquare2, {
                       boardMap: boardMapFuture,
@@ -1872,21 +1867,17 @@ const ChessBoard = forwardRef(
                       freeIndexes
                     });
                   }
-                  (_b2 = (_a2 = boardConfigRef.current.events).move) == null ? void 0 : _b2.call(
-                    _a2,
-                    fromSquare2,
-                    toSquare2,
-                    capturedPiece
-                  );
-                  (_d2 = (_c2 = boardConfigRef.current.events).change) == null ? void 0 : _d2.call(_c2);
-                  (_f2 = (_e2 = boardConfigRef.current.movable.events).after) == null ? void 0 : _f2.call(
-                    _e2,
-                    fromSquare2,
-                    toSquare2
-                  );
                 }
               }
             );
+            (_k = (_j = boardConfigRef.current.events).move) == null ? void 0 : _k.call(
+              _j,
+              fromSquare,
+              toSquare,
+              capturedPiece
+            );
+            (_m = (_l = boardConfigRef.current.events).change) == null ? void 0 : _m.call(_l);
+            (_o = (_n = boardConfigRef.current.movable.events).after) == null ? void 0 : _o.call(_n, fromSquare, toSquare);
             if (boardConfigRef.current.animation.enabled && boardConfigRef.current.animation.duration > 70) {
               if (lastAnimation) {
                 lastAnimation.cancel();
@@ -1980,7 +1971,7 @@ const ChessBoard = forwardRef(
       }
     };
     const handleMouseUp = () => {
-      var _a, _b;
+      var _a, _b, _c, _d, _e, _f, _g, _h;
       if (!isDragging) return;
       if (selectedPiece) {
         const { index: index2, square } = selectedPiece;
@@ -2084,12 +2075,11 @@ const ChessBoard = forwardRef(
                     } else {
                       moveOrCastle = [{ from: fromSquare, to: toSquare }];
                     }
+                    const captured = boardMapFuture.current.get(toSquare);
+                    const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
                     moveOrCastle.forEach(
                       ({ from: fromSquare2, to: toSquare2, render }) => {
-                        var _a2, _b2, _c, _d, _e, _f;
                         if (fromSquare2 !== "" && toSquare2 !== "") {
-                          const captured = boardMapFuture.current.get(toSquare2);
-                          const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
                           if (render !== false) {
                             movePieceOnBoard(fromSquare2, toSquare2, {
                               boardMap: boardMapFuture,
@@ -2097,18 +2087,6 @@ const ChessBoard = forwardRef(
                               freeIndexes
                             });
                           }
-                          (_b2 = (_a2 = boardConfigRef.current.events).move) == null ? void 0 : _b2.call(
-                            _a2,
-                            fromSquare2,
-                            toSquare2,
-                            capturedPiece
-                          );
-                          (_d = (_c = boardConfigRef.current.events).change) == null ? void 0 : _d.call(_c);
-                          (_f = (_e = boardConfigRef.current.movable.events).after) == null ? void 0 : _f.call(
-                            _e,
-                            fromSquare2,
-                            toSquare2
-                          );
                         }
                         boardMapCurrent.current = new Map(
                           boardMapFuture.current
@@ -2117,6 +2095,18 @@ const ChessBoard = forwardRef(
                           boardMapIndexFuture.current
                         );
                       }
+                    );
+                    (_d = (_c = boardConfigRef.current.events).move) == null ? void 0 : _d.call(
+                      _c,
+                      fromSquare,
+                      toSquare,
+                      capturedPiece
+                    );
+                    (_f = (_e = boardConfigRef.current.events).change) == null ? void 0 : _f.call(_e);
+                    (_h = (_g = boardConfigRef.current.movable.events).after) == null ? void 0 : _h.call(
+                      _g,
+                      fromSquare,
+                      toSquare
                     );
                     setSelectedPiece(null);
                     setIsSelect(false);
