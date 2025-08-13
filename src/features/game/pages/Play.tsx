@@ -33,21 +33,18 @@ export default function Play() {
     const boardRef = useRef<ChessBoardHandle>(null);
     const gameRef = useRef(new Chess());
 
+    const [, setRenderTrigger] = useState(false);
     const [squareSize, setSquareSize] = useState(() =>
         getResponsiveSquareSize(window.innerWidth)
     );
-    const [dests, setDests] = useState<Map<string, string[]>>(
-        buildDests(gameRef.current)
-    );
+    const dests = buildDests(gameRef.current);
 
     const handleMove = (from: string, to: string) => {
         const move = gameRef.current.move({ from, to });
         if (!move) return;
 
-        setDests(buildDests(gameRef.current));
-
-        setTimeout(() => {
-            if (gameRef.current.turn() === 'b') {
+        if (gameRef.current.turn() === 'b') {
+            setTimeout(() => {
                 const moves = gameRef.current.moves({
                     verbose: true,
                 }) as Move[];
@@ -57,20 +54,29 @@ export default function Play() {
 
                     boardRef.current?.move(random.from, random.to);
                     boardRef.current?.set({
+                        check: gameRef.current.isCheck(),
                         movable: { dests: buildDests(gameRef.current) },
                     });
-                    boardRef.current?.playPremove();
-                    setDests(buildDests(gameRef.current));
+                    setTimeout(() => {
+                        boardRef.current?.playPremove();
+                        boardRef.current?.set({
+                            check: gameRef.current.isCheck(),
+                        });
+                    }, 0);
                 }
-            }
-        }, 2000);
+            }, 1000);
+        }
+        if (gameRef.current.isCheckmate()) {
+            boardRef.current?.stop();
+        }
+        setRenderTrigger((prev) => !prev);
     };
 
     useEffect(() => {
         boardRef.current?.set({
             check: gameRef.current.isCheck(),
         });
-    }, [gameRef.current.fen()]);
+    }, [gameRef.current.turn()]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -106,9 +112,6 @@ export default function Play() {
                 events={{
                     move: (from: string, to: string) => {
                         handleMove(from, to);
-                        boardRef.current?.set({
-                            check: gameRef.current.isCheck(),
-                        });
                     },
                 }}
             />

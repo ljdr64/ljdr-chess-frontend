@@ -1044,6 +1044,7 @@ const createChessBoardRef = (deps) => {
           ghostRef.current.style.transform = toTranslate;
         }
         boardConfigRef.current.turnColor = boardConfigRef.current.turnColor === "white" ? "black" : "white";
+        boardConfigRef.current.check = "";
         boardConfigRef.current.premovable.dests = [];
         boardConfigRef.current.lastMove = [from, to];
         boardConfigRef.current.lastMove2 = ["", ""];
