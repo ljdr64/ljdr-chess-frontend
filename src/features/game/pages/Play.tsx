@@ -41,6 +41,12 @@ export default function Play() {
 
     const handleMove = (from: string, to: string) => {
         const move = gameRef.current.move({ from, to });
+        if (move.isEnPassant()) {
+            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
+            setTimeout(() => {
+                boardRef.current?.deletePiece(captureSquare);
+            }, 1);
+        }
         if (!move) return;
 
         if (gameRef.current.turn() === 'b') {
@@ -99,6 +105,10 @@ export default function Play() {
                 squareSize={squareSize}
                 orientation="white"
                 turnColor="white"
+                animation={{
+                    enabled: true,
+                    type: 'normal',
+                }}
                 movable={{
                     free: false,
                     color: 'white',

@@ -765,10 +765,6 @@ const createChessBoardRef = (deps) => {
         );
         boardConfigRef.current.selected = config.selected;
         setIsSelect(!!config.selected);
-      } else {
-        setSelectedPiece(null);
-        setIsSelect(false);
-        boardConfigRef.current.selected = "";
       }
       if (config.coordinates) {
         boardConfigRef.current.coordinates = config.coordinates;
@@ -943,11 +939,33 @@ const createChessBoardRef = (deps) => {
         setRenderTrigger((prev) => !prev);
       }
     },
+    deletePiece: (square) => {
+      var _a, _b, _c, _d, _e;
+      const indexCurrent = (_b = (_a = boardMapCurrent.current) == null ? void 0 : _a.get(square)) == null ? void 0 : _b.index;
+      const indexFuture = (_d = (_c = boardMapFuture.current) == null ? void 0 : _c.get(square)) == null ? void 0 : _d.index;
+      if (validateIndex(indexCurrent) && validateIndex(indexFuture) && indexCurrent === indexFuture) {
+        freeIndexes.current.add(indexCurrent);
+        boardMapIndexCurrent.current.delete(indexCurrent);
+        boardMapIndexFuture.current.delete(indexCurrent);
+        boardMapCurrent.current.delete(square);
+        boardMapFuture.current.delete(square);
+      }
+      if (((_e = boardConfigRef.current) == null ? void 0 : _e.selected) === square) {
+        setIsDragging(false);
+        setIsSelect(false);
+        setSelectedPiece(null);
+        boardConfigRef.current.selected = "";
+        if (ghostRef.current) {
+          ghostRef.current.style.visibility = "hidden";
+        }
+      }
+      setRenderTrigger((prev) => !prev);
+    },
     playPremove: () => {
       var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
       const config = boardConfigRef.current;
       const premove2 = config.premovable.current;
-      if (!premove2) return false;
+      if (!premove2) return void 0;
       const [from, to] = premove2;
       const isCorrectTurn = config.movable.color === "both" || config.turnColor === config.movable.color;
       const isLegal = ((_b = (_a = config.movable.dests) == null ? void 0 : _a.get(from)) == null ? void 0 : _b.includes(to)) ?? false;
@@ -1049,12 +1067,12 @@ const createChessBoardRef = (deps) => {
         boardConfigRef.current.lastMove = [from, to];
         boardConfigRef.current.lastMove2 = ["", ""];
         boardConfigRef.current.lastMove3 = ["", ""];
-        return true;
+        return moveOrCastle[0];
       } else {
         const config2 = boardConfigRef.current;
         config2.premovable.current = void 0;
         (_j = (_i = config2.premovable.events) == null ? void 0 : _i.unset) == null ? void 0 : _j.call(_i);
-        return false;
+        return void 0;
       }
     },
     cancelPremove: () => {
@@ -1669,7 +1687,7 @@ const ChessBoard = forwardRef(
       })
     );
     const handleMouseDown = (event) => {
-      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s;
       event.stopPropagation();
       if (!isMovableEnabledRef.current) return;
       let eventType;
@@ -1707,13 +1725,20 @@ const ChessBoard = forwardRef(
             boardConfigRef.current.premovable.dests = [];
           }
           if (prevPremovableDests && prevPremovableDests.length > 0 && prevPremovableDests.includes(currentSquare)) {
-            if (selectedPiece == null ? void 0 : selectedPiece.square)
+            if (selectedPiece == null ? void 0 : selectedPiece.square) {
               boardConfigRef.current.premovable.current = [
                 selectedPiece.square,
                 currentSquare
               ];
-          } else if (!future || boardConfigRef.current.turnColor === (future == null ? void 0 : future.color) || ((_f = boardConfigRef.current.premovable.current) == null ? void 0 : _f[0]) === currentSquare) {
+              (_g = (_f = boardConfigRef.current.premovable.events).set) == null ? void 0 : _g.call(
+                _f,
+                selectedPiece.square,
+                currentSquare
+              );
+            }
+          } else if (!future || boardConfigRef.current.turnColor === (future == null ? void 0 : future.color) || ((_h = boardConfigRef.current.premovable.current) == null ? void 0 : _h[0]) === currentSquare) {
             boardConfigRef.current.premovable.current = void 0;
+            (_j = (_i = boardConfigRef.current.premovable.events).unset) == null ? void 0 : _j.call(_i);
           }
           setRenderTrigger((prev) => !prev);
           setSelectedPiece(null);
@@ -1737,7 +1762,7 @@ const ChessBoard = forwardRef(
                 });
                 boardConfigRef.current.selected = currentSquare;
                 if (!isSelect || !canMove) {
-                  (_g = eventsConfig.select) == null ? void 0 : _g.call(eventsConfig, currentSquare);
+                  (_k = eventsConfig.select) == null ? void 0 : _k.call(eventsConfig, currentSquare);
                 }
               }
               const pieceIndex = boardMapCurrent.current.get(currentSquare).index;
@@ -1805,7 +1830,7 @@ const ChessBoard = forwardRef(
                   square: currentSquare
                 });
                 boardConfigRef.current.selected = currentSquare;
-                (_h = eventsConfig.select) == null ? void 0 : _h.call(eventsConfig, currentSquare);
+                (_l = eventsConfig.select) == null ? void 0 : _l.call(eventsConfig, currentSquare);
                 if (ghostRef.current) {
                   ghostRef.current.style.visibility = "visible";
                   ghostRef.current.style.transform = selectedPieceTranslate;
@@ -1819,7 +1844,7 @@ const ChessBoard = forwardRef(
                     ghostRef.current.classList.add(role);
                   }
                 }
-                (_i = pieceRefs.current[index2]) == null ? void 0 : _i.classList.add("drag");
+                (_m = pieceRefs.current[index2]) == null ? void 0 : _m.classList.add("drag");
               }
             } else {
               setSelectedPiece(null);
@@ -1871,14 +1896,14 @@ const ChessBoard = forwardRef(
                 }
               }
             );
-            (_k = (_j = boardConfigRef.current.events).move) == null ? void 0 : _k.call(
-              _j,
+            (_o = (_n = boardConfigRef.current.events).move) == null ? void 0 : _o.call(
+              _n,
               fromSquare,
               toSquare,
               capturedPiece
             );
-            (_m = (_l = boardConfigRef.current.events).change) == null ? void 0 : _m.call(_l);
-            (_o = (_n = boardConfigRef.current.movable.events).after) == null ? void 0 : _o.call(_n, fromSquare, toSquare);
+            (_q = (_p = boardConfigRef.current.events).change) == null ? void 0 : _q.call(_p);
+            (_s = (_r = boardConfigRef.current.movable.events).after) == null ? void 0 : _s.call(_r, fromSquare, toSquare);
             if (boardConfigRef.current.animation.enabled && boardConfigRef.current.animation.duration > 70) {
               if (lastAnimation) {
                 lastAnimation.cancel();
@@ -1972,7 +1997,7 @@ const ChessBoard = forwardRef(
       }
     };
     const handleMouseUp = () => {
-      var _a, _b, _c, _d, _e, _f, _g, _h;
+      var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
       if (!isDragging) return;
       if (selectedPiece) {
         const { index: index2, square } = selectedPiece;
@@ -2040,10 +2065,15 @@ const ChessBoard = forwardRef(
                         toSquare
                       ];
                       boardConfigRef.current.premovable.dests = [];
+                      (_b = (_a = boardConfigRef.current.premovable.events).set) == null ? void 0 : _b.call(
+                        _a,
+                        fromSquare,
+                        toSquare
+                      );
                     }
                   }
                   const isMovableSelectedColor = boardConfigRef.current.movable.color === "both" || boardConfigRef.current.movable.color === (selectedPiece == null ? void 0 : selectedPiece.color) && boardConfigRef.current.turnColor === (selectedPiece == null ? void 0 : selectedPiece.color);
-                  const canMove = boardConfigRef.current.movable.free === true || isMovableSelectedColor && ((_b = (_a = boardConfigRef.current.movable.dests) == null ? void 0 : _a.get(fromSquare)) == null ? void 0 : _b.includes(toSquare));
+                  const canMove = boardConfigRef.current.movable.free === true || isMovableSelectedColor && ((_d = (_c = boardConfigRef.current.movable.dests) == null ? void 0 : _c.get(fromSquare)) == null ? void 0 : _d.includes(toSquare));
                   if (!canMove) {
                     if (ghostRef.current) {
                       ghostRef.current.style.visibility = "hidden";
@@ -2097,15 +2127,15 @@ const ChessBoard = forwardRef(
                         );
                       }
                     );
-                    (_d = (_c = boardConfigRef.current.events).move) == null ? void 0 : _d.call(
-                      _c,
+                    (_f = (_e = boardConfigRef.current.events).move) == null ? void 0 : _f.call(
+                      _e,
                       fromSquare,
                       toSquare,
                       capturedPiece
                     );
-                    (_f = (_e = boardConfigRef.current.events).change) == null ? void 0 : _f.call(_e);
-                    (_h = (_g = boardConfigRef.current.movable.events).after) == null ? void 0 : _h.call(
-                      _g,
+                    (_h = (_g = boardConfigRef.current.events).change) == null ? void 0 : _h.call(_g);
+                    (_j = (_i = boardConfigRef.current.movable.events).after) == null ? void 0 : _j.call(
+                      _i,
                       fromSquare,
                       toSquare
                     );
