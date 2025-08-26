@@ -917,7 +917,34 @@ const createChessBoardRef = (deps) => {
       }
     },
     newPiece(piece, square) {
-      if (!boardMapFuture.current.has(square)) {
+      if (lastAnimation && lastAnimation.moves.some(
+        (move) => move.from === square || move.to === square
+      )) {
+        lastAnimation.cancel();
+      }
+      if (lastAnimationRef.current && lastAnimationRef.current.moves.some(
+        (move) => move.from === square || move.to === square
+      )) {
+        lastAnimationRef.current.cancel();
+      }
+      const existing = boardMapFuture.current.get(square);
+      if (existing) {
+        const index2 = existing.index;
+        const PieceSquareData = {
+          color: piece.color,
+          role: piece.role,
+          square
+        };
+        const PieceIndexData = {
+          color: piece.color,
+          role: piece.role,
+          index: index2
+        };
+        boardMapIndexCurrent.current.set(index2, PieceSquareData);
+        boardMapIndexFuture.current.set(index2, PieceSquareData);
+        boardMapCurrent.current.set(square, PieceIndexData);
+        boardMapFuture.current.set(square, PieceIndexData);
+      } else {
         const index2 = currentLastIndex.current++;
         const PieceSquareData = {
           color: piece.color,
@@ -933,11 +960,11 @@ const createChessBoardRef = (deps) => {
         boardMapIndexFuture.current.set(index2, PieceSquareData);
         boardMapCurrent.current.set(square, PieceIndexData);
         boardMapFuture.current.set(square, PieceIndexData);
-        boardConfigRef.current.lastMove = [square, ""];
-        boardConfigRef.current.lastMove2 = ["", ""];
-        boardConfigRef.current.lastMove3 = ["", ""];
-        setRenderTrigger((prev) => !prev);
       }
+      boardConfigRef.current.lastMove = [square, ""];
+      boardConfigRef.current.lastMove2 = ["", ""];
+      boardConfigRef.current.lastMove3 = ["", ""];
+      setRenderTrigger((prev) => !prev);
     },
     deletePiece: (square) => {
       var _a, _b, _c, _d, _e;
