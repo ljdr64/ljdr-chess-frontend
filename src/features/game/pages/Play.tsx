@@ -39,6 +39,9 @@ const buildDests = (game: Chess): Map<string, string[]> => {
 export default function Play() {
     const boardRef = useRef<ChessBoardHandle>(null);
     const gameRef = useRef(new Chess());
+    const randomPromotionRef = useRef<'q' | 'r' | 'b' | 'n' | undefined>(
+        undefined
+    );
 
     const [pending, setPending] = useState<PendingPromotion | null>(null);
     const [, setRenderTrigger] = useState(false);
@@ -46,79 +49,6 @@ export default function Play() {
         getResponsiveSquareSize(window.innerWidth)
     );
     const dests = buildDests(gameRef.current);
-
-    const handleMove = (
-        from: string,
-        to: string,
-        promotion?: 'q' | 'r' | 'b' | 'n'
-    ) => {
-        const piece = gameRef.current.get(from as Square);
-        if (piece?.type === 'p') {
-            const rank = to[1];
-            if (
-                (piece.color === 'w' && rank === '8') ||
-                (piece.color === 'b' && rank === '1')
-            ) {
-                setPending({ from, to, color: piece.color });
-                return;
-            }
-        }
-        const move = gameRef.current.move({ from, to, promotion });
-
-        if (move.isEnPassant()) {
-            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
-            setTimeout(() => {
-                boardRef.current?.deletePiece(captureSquare);
-            }, 1);
-        }
-        if (!move) return;
-
-        if (gameRef.current.turn() === 'b') {
-            setTimeout(() => {
-                const moves = gameRef.current.moves({
-                    verbose: true,
-                }) as Move[];
-                if (moves.length > 0) {
-                    const random =
-                        moves[Math.floor(Math.random() * moves.length)];
-
-                    boardRef.current?.move(random.from, random.to);
-                    boardRef.current?.set({
-                        check: gameRef.current.isCheck(),
-                        movable: { dests: buildDests(gameRef.current) },
-                    });
-                    setTimeout(() => {
-                        boardRef.current?.playPremove();
-                        boardRef.current?.set({
-                            check: gameRef.current.isCheck(),
-                        });
-                    }, 0);
-                }
-            }, 1000);
-        }
-        if (gameRef.current.isCheckmate()) {
-            boardRef.current?.stop();
-        }
-        setRenderTrigger((prev) => !prev);
-    };
-
-    useEffect(() => {
-        boardRef.current?.set({
-            check: gameRef.current.isCheck(),
-        });
-    }, [gameRef.current.turn()]);
-
-    useEffect(() => {
-        const handleResize = () => {
-            const newSize = getResponsiveSquareSize(window.innerWidth);
-            setSquareSize(newSize);
-            boardRef.current?.set({ squareSize: newSize });
-        };
-
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const roleMap: Record<
         'q' | 'r' | 'b' | 'n',
@@ -132,6 +62,73 @@ export default function Play() {
     const colorMap: Record<'w' | 'b', 'white' | 'black'> = {
         w: 'white',
         b: 'black',
+    };
+
+    const handleMoveWhite = (from: string, to: string) => {
+        const piece = gameRef.current.get(from as Square);
+        if (piece?.type === 'p') {
+            const rank = to[1];
+            if (
+                (piece.color === 'w' && rank === '8') ||
+                (piece.color === 'b' && rank === '1')
+            ) {
+                setPending({ from, to, color: piece.color });
+                return;
+            }
+        }
+        const move = gameRef.current.move({ from, to });
+
+        if (!move) return;
+
+        if (move.isEnPassant()) {
+            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
+            setTimeout(() => {
+                boardRef.current?.deletePiece(captureSquare);
+            }, 1);
+        }
+
+        if (gameRef.current.isCheckmate()) {
+            boardRef.current?.stop();
+        }
+
+        playRandomMoveBlack();
+
+        setRenderTrigger((prev) => !prev);
+    };
+
+    const handleMoveBlack = (from: string, to: string) => {
+        const move = gameRef.current.move({
+            from,
+            to,
+            promotion: randomPromotionRef.current,
+        });
+
+        if (randomPromotionRef.current) {
+            const colorPiece = 'black';
+            const rolePiece = roleMap[randomPromotionRef.current];
+            setTimeout(() => {
+                boardRef.current?.newPiece(
+                    { color: colorPiece, role: rolePiece },
+                    to
+                );
+                boardRef.current?.set({ lastMove: [from, to] });
+            }, 1);
+        }
+
+        if (!move) return;
+
+        if (move.isEnPassant()) {
+            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
+            setTimeout(() => {
+                boardRef.current?.deletePiece(captureSquare);
+            }, 1);
+        }
+
+        if (gameRef.current.isCheckmate()) {
+            boardRef.current?.stop();
+        }
+
+        setRenderTrigger((prev) => !prev);
     };
 
     const confirmPromotion = (
@@ -157,29 +154,7 @@ export default function Play() {
         }
         setPending(null);
 
-        if (gameRef.current.turn() === 'b') {
-            setTimeout(() => {
-                const moves = gameRef.current.moves({
-                    verbose: true,
-                }) as Move[];
-                if (moves.length > 0) {
-                    const random =
-                        moves[Math.floor(Math.random() * moves.length)];
-
-                    boardRef.current?.move(random.from, random.to);
-                    boardRef.current?.set({
-                        check: gameRef.current.isCheck(),
-                        movable: { dests: buildDests(gameRef.current) },
-                    });
-                    setTimeout(() => {
-                        boardRef.current?.playPremove();
-                        boardRef.current?.set({
-                            check: gameRef.current.isCheck(),
-                        });
-                    }, 0);
-                }
-            }, 1000);
-        }
+        playRandomMoveBlack();
     };
 
     const cancelPromotion = () => {
@@ -214,6 +189,67 @@ export default function Play() {
         setPending(null);
     };
 
+    const playRandomMoveBlack = () => {
+        setTimeout(() => {
+            const moves = gameRef.current.moves({
+                verbose: true,
+            }) as Move[];
+            if (moves.length > 0) {
+                const random = moves[Math.floor(Math.random() * moves.length)];
+
+                randomPromotionRef.current = random.promotion as
+                    | 'q'
+                    | 'r'
+                    | 'b'
+                    | 'n'
+                    | undefined;
+                boardRef.current?.move(random.from, random.to);
+                boardRef.current?.set({
+                    check: gameRef.current.isCheck(),
+                    movable: { dests: buildDests(gameRef.current) },
+                });
+
+                if (random.promotion) {
+                    const colorPiece = 'black';
+                    const rolePiece =
+                        roleMap[random.promotion as 'q' | 'r' | 'b' | 'n'];
+                    boardRef.current?.newPiece(
+                        { color: colorPiece, role: rolePiece },
+                        random.to
+                    );
+                    boardRef.current?.set({
+                        lastMove: [random.from, random.to],
+                    });
+                }
+
+                setTimeout(() => {
+                    boardRef.current?.playPremove();
+                    boardRef.current?.set({
+                        check: gameRef.current.isCheck(),
+                    });
+                }, 0);
+            }
+        }, 1000);
+    };
+
+    useEffect(() => {
+        boardRef.current?.set({
+            check: gameRef.current.isCheck(),
+        });
+    }, [gameRef.current.turn()]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            const newSize = getResponsiveSquareSize(window.innerWidth);
+            setSquareSize(newSize);
+            boardRef.current?.set({ squareSize: newSize });
+        };
+
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     return (
         <div className="flex justify-center p-10 min-w-[20rem]">
             <div className="relative">
@@ -240,7 +276,11 @@ export default function Play() {
                     }}
                     events={{
                         move: (from: string, to: string) => {
-                            handleMove(from, to);
+                            if (gameRef.current.turn() === 'w') {
+                                handleMoveWhite(from, to);
+                            } else {
+                                handleMoveBlack(from, to);
+                            }
                         },
                     }}
                 />
@@ -251,34 +291,66 @@ export default function Play() {
                             onClick={() => cancelPromotion()}
                         >
                             {[
-                                { role: 'q', piece: 'queen', top: '0%' },
-                                { role: 'n', piece: 'knight', top: '12.5%' },
-                                { role: 'r', piece: 'rook', top: '25%' },
-                                { role: 'b', piece: 'bishop', top: '37.5%' },
-                            ].map(({ role, piece, top }) => (
-                                <div
-                                    key={`${pending.color}-${role}`}
-                                    className="ljdr-square"
-                                    style={{
-                                        top,
-                                        left: `${
-                                            (pending.to[0].charCodeAt(0) - 97) *
-                                            12.5
-                                        }%`,
-                                    }}
-                                >
+                                { role: 'q', piece: 'queen' },
+                                { role: 'n', piece: 'knight' },
+                                { role: 'r', piece: 'rook' },
+                                { role: 'b', piece: 'bishop' },
+                            ].map(({ role, piece }, idx) => {
+                                const fileIndex =
+                                    pending.to[0].charCodeAt(0) - 97;
+                                const rank = parseInt(pending.to[1]);
+
+                                const orientationIsWhite =
+                                    boardRef.current?.getOrientation() ===
+                                    'white';
+
+                                const colLeft = orientationIsWhite
+                                    ? fileIndex * 12.5
+                                    : (7 - fileIndex) * 12.5;
+
+                                const baseTop = orientationIsWhite
+                                    ? (8 - rank) * 12.5
+                                    : (rank - 1) * 12.5;
+
+                                const isNormalPromotion =
+                                    (orientationIsWhite &&
+                                        pending.to[1] === '8') ||
+                                    (!orientationIsWhite &&
+                                        pending.to[1] === '1');
+
+                                const pieceTop = isNormalPromotion
+                                    ? `${baseTop + idx * 12.5}%`
+                                    : `${baseTop - idx * 12.5}%`;
+
+                                return (
                                     <div
-                                        key={role}
-                                        className={`ljdr-piece white ${piece}`}
-                                        onClick={(e) =>
-                                            confirmPromotion(
-                                                e,
-                                                role as 'q' | 'n' | 'r' | 'b'
-                                            )
-                                        }
-                                    />
-                                </div>
-                            ))}
+                                        key={`${pending.color}-${role}`}
+                                        className="ljdr-square"
+                                        style={{
+                                            top: pieceTop,
+                                            left: `${colLeft}%`,
+                                        }}
+                                    >
+                                        <div
+                                            className={`ljdr-piece ${
+                                                pending.color === 'w'
+                                                    ? 'white'
+                                                    : 'black'
+                                            } ${piece}`}
+                                            onClick={(e) =>
+                                                confirmPromotion(
+                                                    e,
+                                                    role as
+                                                        | 'q'
+                                                        | 'n'
+                                                        | 'r'
+                                                        | 'b'
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
