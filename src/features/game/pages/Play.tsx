@@ -4,6 +4,8 @@ import {
     ChessBoardHandle,
 } from '../../../lib/ljdr-chessboard/ljdr-chessboard.es.js';
 
+import PromotionChoice from '../components/PromotionChoice';
+
 import { Chess, Move, Square } from 'chess.js';
 
 import '../../../lib/ljdr-chessboard/style.css';
@@ -285,74 +287,14 @@ export default function Play() {
                     }}
                 />
                 {pending && (
-                    <div id="promotion-choice">
-                        <div
-                            className="ljdr-wrap"
-                            onClick={() => cancelPromotion()}
-                        >
-                            {[
-                                { role: 'q', piece: 'queen' },
-                                { role: 'n', piece: 'knight' },
-                                { role: 'r', piece: 'rook' },
-                                { role: 'b', piece: 'bishop' },
-                            ].map(({ role, piece }, idx) => {
-                                const fileIndex =
-                                    pending.to[0].charCodeAt(0) - 97;
-                                const rank = parseInt(pending.to[1]);
-
-                                const orientationIsWhite =
-                                    boardRef.current?.getOrientation() ===
-                                    'white';
-
-                                const colLeft = orientationIsWhite
-                                    ? fileIndex * 12.5
-                                    : (7 - fileIndex) * 12.5;
-
-                                const baseTop = orientationIsWhite
-                                    ? (8 - rank) * 12.5
-                                    : (rank - 1) * 12.5;
-
-                                const isNormalPromotion =
-                                    (orientationIsWhite &&
-                                        pending.to[1] === '8') ||
-                                    (!orientationIsWhite &&
-                                        pending.to[1] === '1');
-
-                                const pieceTop = isNormalPromotion
-                                    ? `${baseTop + idx * 12.5}%`
-                                    : `${baseTop - idx * 12.5}%`;
-
-                                return (
-                                    <div
-                                        key={`${pending.color}-${role}`}
-                                        className="ljdr-square"
-                                        style={{
-                                            top: pieceTop,
-                                            left: `${colLeft}%`,
-                                        }}
-                                    >
-                                        <div
-                                            className={`ljdr-piece ${
-                                                pending.color === 'w'
-                                                    ? 'white'
-                                                    : 'black'
-                                            } ${piece}`}
-                                            onClick={(e) =>
-                                                confirmPromotion(
-                                                    e,
-                                                    role as
-                                                        | 'q'
-                                                        | 'n'
-                                                        | 'r'
-                                                        | 'b'
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <PromotionChoice
+                        pending={pending}
+                        orientation={
+                            boardRef.current?.getOrientation() ?? 'white'
+                        }
+                        cancelPromotion={cancelPromotion}
+                        confirmPromotion={confirmPromotion}
+                    />
                 )}
             </div>
         </div>
