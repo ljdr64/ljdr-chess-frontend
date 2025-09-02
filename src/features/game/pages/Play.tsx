@@ -31,10 +31,42 @@ const getResponsiveSquareSize = (width: number): number => {
 const buildDests = (game: Chess): Map<string, string[]> => {
     const map = new Map<string, string[]>();
     const verbose = game.moves({ verbose: true }) as Move[];
+
     for (const m of verbose) {
         if (!map.has(m.from)) map.set(m.from, []);
         map.get(m.from)!.push(m.to);
     }
+
+    const turn = game.turn();
+
+    if (turn === 'w' && game.get('e1')?.type === 'k') {
+        const e1Moves = map.get('e1') || [];
+
+        if (e1Moves.includes('g1')) {
+            e1Moves.push('h1');
+            map.set('e1', e1Moves);
+        }
+
+        if (e1Moves.includes('c1')) {
+            e1Moves.push('a1');
+            map.set('e1', e1Moves);
+        }
+    }
+
+    if (turn === 'b' && game.get('e8')?.type === 'k') {
+        const e8Moves = map.get('e8') || [];
+
+        if (e8Moves.includes('g8')) {
+            e8Moves.push('h8');
+            map.set('e8', e8Moves);
+        }
+
+        if (e8Moves.includes('c8')) {
+            e8Moves.push('a8');
+            map.set('e8', e8Moves);
+        }
+    }
+
     return map;
 };
 
@@ -78,6 +110,18 @@ export default function Play() {
                 return;
             }
         }
+
+        if (piece?.type === 'k') {
+            const castleMap: Record<string, Record<string, string>> = {
+                e1: { h1: 'g1', a1: 'c1' },
+                e8: { h8: 'g8', a8: 'c8' },
+            };
+
+            if (castleMap[from] && castleMap[from][to]) {
+                to = castleMap[from][to];
+            }
+        }
+
         const move = gameRef.current.move({ from, to });
 
         if (!move) return;
