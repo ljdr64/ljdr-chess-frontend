@@ -70,12 +70,17 @@ const buildDests = (game: Chess): Map<string, string[]> => {
     return map;
 };
 
-export default function Play() {
+type PlayProps = {
+    localPlayer: 'white' | 'black';
+};
+
+export default function Play({ localPlayer }: PlayProps) {
     const boardRef = useRef<ChessBoardHandle>(null);
     const gameRef = useRef(new Chess());
     const randomPromotionRef = useRef<'q' | 'r' | 'b' | 'n' | undefined>(
         undefined
     );
+    const startedRef = useRef(false);
 
     const [pending, setPending] = useState<PendingPromotion | null>(null);
     const [, setRenderTrigger] = useState(false);
@@ -98,80 +103,96 @@ export default function Play() {
         b: 'black',
     };
 
-    const handleMoveWhite = (from: string, to: string) => {
-        const piece = gameRef.current.get(from as Square);
-        if (piece?.type === 'p') {
-            const rank = to[1];
-            if (
-                (piece.color === 'w' && rank === '8') ||
-                (piece.color === 'b' && rank === '1')
-            ) {
-                setPending({ from, to, color: piece.color });
-                return;
+    const remotePlayer: 'white' | 'black' =
+        localPlayer === 'white' ? 'black' : 'white';
+
+    useEffect(() => {
+        if (startedRef.current) return;
+        startedRef.current = true;
+
+        if (localPlayer === 'black') {
+            playRandomMove('white');
+        }
+    }, []);
+
+    const handleMove = (
+        playerColor: 'white' | 'black',
+        from: string,
+        to: string
+    ) => {
+        if (playerColor === localPlayer) {
+            const piece = gameRef.current.get(from as Square);
+            if (piece?.type === 'p') {
+                const rank = to[1];
+                if (
+                    (piece.color === 'w' && rank === '8') ||
+                    (piece.color === 'b' && rank === '1')
+                ) {
+                    setPending({ from, to, color: piece.color });
+                    return;
+                }
             }
-        }
 
-        if (piece?.type === 'k') {
-            const castleMap: Record<string, Record<string, string>> = {
-                e1: { h1: 'g1', a1: 'c1' },
-                e8: { h8: 'g8', a8: 'c8' },
-            };
+            if (piece?.type === 'k') {
+                const castleMap: Record<string, Record<string, string>> = {
+                    e1: { h1: 'g1', a1: 'c1' },
+                    e8: { h8: 'g8', a8: 'c8' },
+                };
 
-            if (castleMap[from] && castleMap[from][to]) {
-                to = castleMap[from][to];
+                if (castleMap[from] && castleMap[from][to]) {
+                    to = castleMap[from][to];
+                }
             }
-        }
 
-        const move = gameRef.current.move({ from, to });
+            const move = gameRef.current.move({ from, to });
 
-        if (!move) return;
+            if (!move) return;
 
-        if (move.isEnPassant()) {
-            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
-            setTimeout(() => {
-                boardRef.current?.deletePiece(captureSquare);
-            }, 1);
-        }
+            if (move.isEnPassant()) {
+                const captureSquare =
+                    move.to[0] + (move.color === 'w' ? '5' : '4');
+                setTimeout(() => {
+                    boardRef.current?.deletePiece(captureSquare);
+                }, 1);
+            }
 
-        if (gameRef.current.isCheckmate()) {
-            boardRef.current?.stop();
-        }
+            if (gameRef.current.isCheckmate()) {
+                boardRef.current?.stop();
+            }
 
-        playRandomMoveBlack();
+            playRandomMove(remotePlayer);
+        } else if (playerColor === remotePlayer) {
+            const move = gameRef.current.move({
+                from,
+                to,
+                promotion: randomPromotionRef.current,
+            });
 
-        setRenderTrigger((prev) => !prev);
-    };
+            if (!move) return;
 
-    const handleMoveBlack = (from: string, to: string) => {
-        const move = gameRef.current.move({
-            from,
-            to,
-            promotion: randomPromotionRef.current,
-        });
+            if (randomPromotionRef.current) {
+                const colorPiece = remotePlayer;
+                const rolePiece = roleMap[randomPromotionRef.current];
+                setTimeout(() => {
+                    boardRef.current?.newPiece(
+                        { color: colorPiece, role: rolePiece },
+                        to
+                    );
+                    boardRef.current?.set({ lastMove: [from, to] });
+                }, 1);
+            }
 
-        if (randomPromotionRef.current) {
-            const colorPiece = 'black';
-            const rolePiece = roleMap[randomPromotionRef.current];
-            setTimeout(() => {
-                boardRef.current?.newPiece(
-                    { color: colorPiece, role: rolePiece },
-                    to
-                );
-                boardRef.current?.set({ lastMove: [from, to] });
-            }, 1);
-        }
+            if (move.isEnPassant()) {
+                const captureSquare =
+                    move.to[0] + (move.color === 'w' ? '5' : '4');
+                setTimeout(() => {
+                    boardRef.current?.deletePiece(captureSquare);
+                }, 1);
+            }
 
-        if (!move) return;
-
-        if (move.isEnPassant()) {
-            const captureSquare = move.to[0] + (move.color === 'w' ? '5' : '4');
-            setTimeout(() => {
-                boardRef.current?.deletePiece(captureSquare);
-            }, 1);
-        }
-
-        if (gameRef.current.isCheckmate()) {
-            boardRef.current?.stop();
+            if (gameRef.current.isCheckmate()) {
+                boardRef.current?.stop();
+            }
         }
 
         setRenderTrigger((prev) => !prev);
@@ -200,7 +221,7 @@ export default function Play() {
         }
         setPending(null);
 
-        playRandomMoveBlack();
+        playRandomMove(remotePlayer);
     };
 
     const cancelPromotion = () => {
@@ -235,7 +256,7 @@ export default function Play() {
         setPending(null);
     };
 
-    const playRandomMoveBlack = () => {
+    const playRandomMove = (color: 'white' | 'black') => {
         setTimeout(() => {
             const moves = gameRef.current.moves({
                 verbose: true,
@@ -256,11 +277,10 @@ export default function Play() {
                 });
 
                 if (random.promotion) {
-                    const colorPiece = 'black';
                     const rolePiece =
                         roleMap[random.promotion as 'q' | 'r' | 'b' | 'n'];
                     boardRef.current?.newPiece(
-                        { color: colorPiece, role: rolePiece },
+                        { color, role: rolePiece },
                         random.to
                     );
                     boardRef.current?.set({
@@ -304,7 +324,7 @@ export default function Play() {
                     id="board-1"
                     fen={gameRef.current.fen()}
                     squareSize={squareSize}
-                    orientation="white"
+                    orientation={localPlayer}
                     turnColor="white"
                     animation={{
                         enabled: true,
@@ -312,7 +332,7 @@ export default function Play() {
                     }}
                     movable={{
                         free: false,
-                        color: 'white',
+                        color: localPlayer,
                         dests,
                         showDests: true,
                     }}
@@ -323,9 +343,9 @@ export default function Play() {
                     events={{
                         move: (from: string, to: string) => {
                             if (gameRef.current.turn() === 'w') {
-                                handleMoveWhite(from, to);
+                                handleMove('white', from, to);
                             } else {
-                                handleMoveBlack(from, to);
+                                handleMove('black', from, to);
                             }
                         },
                     }}

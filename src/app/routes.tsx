@@ -11,7 +11,15 @@ export const router = createBrowserRouter(
     createRoutesFromElements(
         <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/play" element={<Play />} />
+            <Route
+                path="/play"
+                element={
+                    <>
+                        <Play localPlayer="white" />
+                        <Play localPlayer="black" />
+                    </>
+                }
+            />
         </Route>
     )
 );
