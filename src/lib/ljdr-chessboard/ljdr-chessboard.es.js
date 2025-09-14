@@ -48,6 +48,8 @@ const defaultDraggable = {
 const defaultEvents = {
   move: () => {
   },
+  moves: () => {
+  },
   change: () => {
   },
   select: () => {
@@ -1246,7 +1248,7 @@ const createChessBoardRef = (deps) => {
       }
     },
     moves: (moves) => {
-      var _a;
+      var _a, _b, _c, _d, _e;
       const allMovesValid = moves.every(({ from, to }) => {
         if (from === "" && to === "") return true;
         const validFrom = validateSquare(from);
@@ -1286,6 +1288,7 @@ const createChessBoardRef = (deps) => {
           }
         }
         const renderMoves = [];
+        const eventsRenderMoves = [];
         boardConfigRef.current.lastMove = ["", ""];
         boardConfigRef.current.lastMove2 = ["", ""];
         boardConfigRef.current.lastMove3 = ["", ""];
@@ -1325,6 +1328,16 @@ const createChessBoardRef = (deps) => {
                 ...result.move,
                 ...lastMoveNumber !== void 0 ? { lastMove: lastMoveNumber } : {}
               });
+              if (lastMoveNumber !== void 0) {
+                const captured = boardMapFuture.current.get(toSquare);
+                const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
+                eventsRenderMoves.push({
+                  from: result.move.from,
+                  to: result.move.to,
+                  capturedPiece,
+                  lastMoveNumber
+                });
+              }
               movePieceOnBoard(result.move.from, result.move.to, {
                 boardMap: boardMapFuture,
                 boardMapIndex: boardMapIndexFuture,
@@ -1343,6 +1356,16 @@ const createChessBoardRef = (deps) => {
                 ...result.move,
                 ...lastMoveNumber !== void 0 ? { lastMove: lastMoveNumber } : {}
               });
+              if (lastMoveNumber !== void 0) {
+                const captured = boardMapFuture.current.get(toSquare);
+                const capturedPiece = captured ? { color: captured.color, role: captured.role } : null;
+                eventsRenderMoves.push({
+                  from: result.move.from,
+                  to: result.move.to,
+                  capturedPiece,
+                  lastMoveNumber
+                });
+              }
               movePieceOnBoard(fromSquare, toSquare, {
                 boardMap: boardMapFuture,
                 boardMapIndex: boardMapIndexFuture,
@@ -1351,6 +1374,8 @@ const createChessBoardRef = (deps) => {
             }
           }
         }
+        (_b = (_a = boardConfigRef.current.events).moves) == null ? void 0 : _b.call(_a, eventsRenderMoves);
+        (_d = (_c = boardConfigRef.current.events).change) == null ? void 0 : _d.call(_c);
         if (lastAnimation) {
           lastAnimation.cancel();
         }
@@ -1411,7 +1436,7 @@ const createChessBoardRef = (deps) => {
           boardConfigRef.current.check = "";
           boardConfigRef.current.movable.dests = /* @__PURE__ */ new Map();
           boardConfigRef.current.premovable.dests = [];
-          if (!((_a = boardConfigRef.current.premovable.dests) == null ? void 0 : _a.includes(
+          if (!((_e = boardConfigRef.current.premovable.dests) == null ? void 0 : _e.includes(
             boardConfigRef.current.selected
           )) && boardConfigRef.current.premovable.enabled === true && boardConfigRef.current.premovable.showDests === true && boardConfigRef.current.movable.color === (selectedPiece == null ? void 0 : selectedPiece.color) && boardConfigRef.current.turnColor !== (selectedPiece == null ? void 0 : selectedPiece.color)) {
             const newDests = premove(

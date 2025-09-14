@@ -15,8 +15,8 @@ export const router = createBrowserRouter(
                 path="/play"
                 element={
                     <>
-                        <Play localPlayer="white" />
-                        <Play localPlayer="black" />
+                        <Play localPlayer="white" randomMovesCount={2} />
+                        <Play localPlayer="black" randomMovesCount={1} />
                     </>
                 }
             />

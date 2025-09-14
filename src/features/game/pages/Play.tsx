@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
+import { Chess, Move, Square } from 'chess.js';
+
 import {
     ChessBoard,
     ChessBoardHandle,
-} from '../../../lib/ljdr-chessboard/ljdr-chessboard.es.js';
+} from '@/lib/ljdr-chessboard/ljdr-chessboard.es.js';
 
-import PromotionChoice from '../components/PromotionChoice';
+import PromotionChoice from '@/features/game/components/PromotionChoice';
+import { chooseRandomMoves } from '@/features/game/utils/moves.js';
 
-import { Chess, Move, Square } from 'chess.js';
-
-import '../../../lib/ljdr-chessboard/style.css';
-import './promotion.css';
+import '@/lib/ljdr-chessboard/style.css';
+import '@/features/game/pages/promotion.css';
 
 type PendingPromotion = {
     from: string;
@@ -72,12 +73,16 @@ const buildDests = (game: Chess): Map<string, string[]> => {
 
 type PlayProps = {
     localPlayer: 'white' | 'black';
+    randomMovesCount?: 1 | 2;
 };
 
-export default function Play({ localPlayer }: PlayProps) {
+export default function Play({ localPlayer, randomMovesCount = 1 }: PlayProps) {
     const boardRef = useRef<ChessBoardHandle>(null);
     const gameRef = useRef(new Chess());
     const randomPromotionRef = useRef<'q' | 'r' | 'b' | 'n' | undefined>(
+        undefined
+    );
+    const randomPromotionRef2 = useRef<'q' | 'r' | 'b' | 'n' | undefined>(
         undefined
     );
     const startedRef = useRef(false);
@@ -90,9 +95,11 @@ export default function Play({ localPlayer }: PlayProps) {
     const dests = buildDests(gameRef.current);
 
     const roleMap: Record<
-        'q' | 'r' | 'b' | 'n',
-        'queen' | 'rook' | 'bishop' | 'knight'
+        'p' | 'k' | 'q' | 'r' | 'b' | 'n',
+        'pawn' | 'king' | 'queen' | 'rook' | 'bishop' | 'knight'
     > = {
+        p: 'pawn',
+        k: 'king',
         q: 'queen',
         r: 'rook',
         b: 'bishop',
@@ -111,7 +118,7 @@ export default function Play({ localPlayer }: PlayProps) {
         startedRef.current = true;
 
         if (localPlayer === 'black') {
-            playRandomMove('white');
+            playRandomMoves('white', randomMovesCount);
         }
     }, []);
 
@@ -160,7 +167,7 @@ export default function Play({ localPlayer }: PlayProps) {
                 boardRef.current?.stop();
             }
 
-            playRandomMove(remotePlayer);
+            playRandomMoves(remotePlayer, randomMovesCount);
         } else if (playerColor === remotePlayer) {
             const move = gameRef.current.move({
                 from,
@@ -221,7 +228,7 @@ export default function Play({ localPlayer }: PlayProps) {
         }
         setPending(null);
 
-        playRandomMove(remotePlayer);
+        playRandomMoves(remotePlayer, randomMovesCount);
     };
 
     const cancelPromotion = () => {
@@ -256,13 +263,13 @@ export default function Play({ localPlayer }: PlayProps) {
         setPending(null);
     };
 
-    const playRandomMove = (color: 'white' | 'black') => {
+    const playRandomMoves = (color: 'white' | 'black', count: 1 | 2) => {
         setTimeout(() => {
             const moves = gameRef.current.moves({
                 verbose: true,
             }) as Move[];
             if (moves.length > 0) {
-                const random = moves[Math.floor(Math.random() * moves.length)];
+                const [random, random2] = chooseRandomMoves(moves, count);
 
                 randomPromotionRef.current = random.promotion as
                     | 'q'
@@ -270,7 +277,32 @@ export default function Play({ localPlayer }: PlayProps) {
                     | 'b'
                     | 'n'
                     | undefined;
-                boardRef.current?.move(random.from, random.to);
+
+                if (random2 && !random.captured) {
+                    boardRef.current?.set({
+                        fen: gameRef.current.fen(),
+                    });
+                    boardRef.current?.moves([
+                        {
+                            from: random.from,
+                            to: random.to,
+                            lastMove: 1,
+                        },
+                        {
+                            from: random2.from,
+                            to: random2.to,
+                            lastMove: 2,
+                        },
+                    ]);
+                    randomPromotionRef2.current = random2.promotion as
+                        | 'q'
+                        | 'r'
+                        | 'b'
+                        | 'n'
+                        | undefined;
+                } else {
+                    boardRef.current?.move(random.from, random.to);
+                }
                 boardRef.current?.set({
                     check: gameRef.current.isCheck(),
                     movable: { dests: buildDests(gameRef.current) },
@@ -287,13 +319,34 @@ export default function Play({ localPlayer }: PlayProps) {
                         lastMove: [random.from, random.to],
                     });
                 }
+                if (random2 && random2.promotion) {
+                    const rolePiece =
+                        roleMap[random2.promotion as 'q' | 'r' | 'b' | 'n'];
+                    boardRef.current?.newPiece(
+                        { color, role: rolePiece },
+                        random2.to
+                    );
+                    boardRef.current?.set({
+                        lastMove2: [random2.from, random2.to],
+                    });
+                }
 
                 setTimeout(() => {
                     boardRef.current?.playPremove();
-                    boardRef.current?.set({
-                        check: gameRef.current.isCheck(),
-                    });
+                    if (random2 && !random.captured) {
+                        boardRef.current?.set({
+                            check: gameRef.current.isCheck(),
+                            lastMove: [random.from, random.to],
+                            lastMove2: [random2.from, random2.to],
+                        });
+                    } else {
+                        boardRef.current?.set({
+                            check: gameRef.current.isCheck(),
+                        });
+                    }
                 }, 0);
+
+                setRenderTrigger((prev) => !prev);
             }
         }, 1000);
     };
@@ -346,6 +399,13 @@ export default function Play({ localPlayer }: PlayProps) {
                                 handleMove('white', from, to);
                             } else {
                                 handleMove('black', from, to);
+                            }
+                        },
+                        moves: (moves: [{ from: string; to: string }]) => {
+                            if (gameRef.current.turn() === 'w') {
+                                handleMove('white', moves[0].from, moves[0].to);
+                            } else {
+                                handleMove('black', moves[0].from, moves[0].to);
                             }
                         },
                     }}

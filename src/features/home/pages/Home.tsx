@@ -1,4 +1,4 @@
-import HomeOptions from '../components/HomeOptions';
+import HomeOptions from '@/features/home/components/HomeOptions';
 
 export default function Home() {
     return (

@@ -20,7 +20,12 @@
         "noUnusedParameters": false,
         "noFallthroughCasesInSwitch": true,
 
-        "jsx": "react-jsx"
+        "jsx": "react-jsx",
+
+        "baseUrl": "src",
+        "paths": {
+            "@/*": ["*"]
+        }
     },
     "include": ["src", "tests"]
 }
